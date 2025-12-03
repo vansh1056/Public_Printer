@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Html5Qrcode, Html5QrcodeCameraScanConfig } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 
 interface QRScannerProps {
   onScan: (result: string) => void;
@@ -15,31 +15,25 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan }) => {
     setScanning(true);
 
     try {
-      // Get cameras in a mobile-friendly way
-      const cameras = await Html5Qrcode.getCameras();
-      if (!cameras || cameras.length === 0) {
+      // Check camera availability
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cameras = devices.filter((d) => d.kind === "videoinput");
+      if (cameras.length === 0) {
         setError("No camera found on this device.");
         setScanning(false);
         return;
       }
 
-      // Prefer back camera
-      let cameraId = cameras[0].id;
-      const backCamera = cameras.find((c) =>
-        /back|rear|environment/i.test(c.label)
-      );
-      if (backCamera) cameraId = backCamera.id;
+      // Use environment/back camera by default
+      const cameraConfig: { facingMode?: "environment" | "user" } = {
+        facingMode: "environment",
+      };
 
       // Initialize scanner
       scannerRef.current = new Html5Qrcode("qr-reader");
-      const config: Html5QrcodeCameraScanConfig = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-      };
-
       await scannerRef.current.start(
-        { deviceId: { exact: cameraId } },
-        config,
+        cameraConfig,
+        { fps: 10, qrbox: { width: 250, height: 250 } },
         (decodedText) => {
           onScan(decodedText);
           stopScanner();
@@ -80,7 +74,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ onScan }) => {
       ) : (
         <div
           id="qr-reader"
-          style={{ width: "100%", maxWidth: 400, height: 400, marginTop: 16 }}
+          style={{
+            width: "100%",
+            maxWidth: 400,
+            height: 400,
+            marginTop: 16,
+          }}
         ></div>
       )}
 
